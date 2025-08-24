@@ -15,6 +15,7 @@ import openai
 
 # Fallback document processing
 from markitdown import MarkItDown
+from openai.lib.azure import AzureOpenAI
 
 # Centralized imports
 from config.settings import (
@@ -237,11 +238,11 @@ class AzureOpenAIClient:
             raise ValueError("Azure OpenAI credentials not found in environment variables")
         
         # Initialize client
-        openai.api_type = "azure"
-        openai.api_base = self.endpoint
-        openai.api_key = self.api_key
-        openai.api_version = self.api_version
-        
+        self.client = AzureOpenAI(
+            api_key=AZURE_OPENAI_API_KEY,
+            api_version=AZURE_OPENAI_API_VERSION,
+            azure_endpoint=AZURE_OPENAI_ENDPOINT,
+        )
         logger.info(f"Azure OpenAI initialized with deployment: {self.deployment_name}")
         print(f"🔍 DEBUG - Azure OpenAI initialized: endpoint={self.endpoint[:50]}..., deployment={self.deployment_name}")
     
@@ -267,14 +268,14 @@ class AzureOpenAIClient:
             
             # Call Azure OpenAI (using older openai version syntax)
             response = await asyncio.to_thread(
-                openai.ChatCompletion.create,
-                engine=self.deployment_name,
+                self.client.chat.completions.create,
+                model=AZURE_OPENAI_DEPLOYMENT_NAME,
                 messages=[
-                    {"role": "system", "content": "You are an expert at extracting structured information from Israeli National Insurance Institute forms. Extract information accurately and return valid JSON."},
-                    {"role": "user", "content": prompt}
+                    {"role": "system", "content": "..."},
+                    {"role": "user", "content": prompt},
                 ],
                 temperature=0.1,
-                max_tokens=2000
+                max_tokens=2000,
             )
             
             # Extract response
