@@ -1,0 +1,26 @@
+# Azure OpenAI and Document Intelligence
+azure-ai-formrecognizer==3.3.2
+azure-cognitiveservices-vision-computervision==0.9.0
+azure-identity==1.15.0
+openai==1.10.0
+
+# Web Framework
+streamlit==1.31.0
+fastapi==0.109.0
+uvicorn==0.27.0
+
+# Data Processing
+pandas==2.1.4
+numpy==1.26.4
+Pillow==10.2.0
+PyPDF2==3.0.1
+
+# Utilities
+python-dotenv==1.0.0
+pydantic==2.5.3
+requests==2.31.0
+python-multipart==0.0.6
+
+# Development and Testing
+pytest==7.4.4
+pytest-asyncio==0.23.3

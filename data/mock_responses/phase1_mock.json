@@ -1,0 +1,132 @@
+{
+  "sample_extraction_results": [
+    {
+      "document_name": "283_ex1.pdf",
+      "confidence": 0.89,
+      "language_detected": "Hebrew",
+      "processing_time": 2.3,
+      "extracted_fields": {
+        "lastName": "כהן",
+        "firstName": "דוד", 
+        "idNumber": "123456789",
+        "gender": "זכר",
+        "dateOfBirth": {
+          "day": "15",
+          "month": "03",
+          "year": "1985"
+        },
+        "address": {
+          "street": "רחוב הרצל",
+          "houseNumber": "25",
+          "entrance": "א",
+          "apartment": "12",
+          "city": "תל אביב",
+          "postalCode": "6473925",
+          "poBox": ""
+        },
+        "landlinePhone": "03-1234567",
+        "mobilePhone": "050-1234567",
+        "jobType": "נהג",
+        "dateOfInjury": {
+          "day": "10", 
+          "month": "01",
+          "year": "2024"
+        },
+        "timeOfInjury": "14:30",
+        "accidentLocation": "בעבודה",
+        "accidentAddress": "רחוב הירקון 101, תל אביב",
+        "accidentDescription": "נפילה מגובה בזמן עבודה על בניין. הפועל עבד על פיגום והחליק בגלל רטיבות.",
+        "injuredBodyPart": "רגל ימין",
+        "signature": "דוד כהן",
+        "formFillingDate": {
+          "day": "12",
+          "month": "01", 
+          "year": "2024"
+        },
+        "formReceiptDateAtClinic": {
+          "day": "15",
+          "month": "01",
+          "year": "2024" 
+        },
+        "medicalInstitutionFields": {
+          "healthFundMember": "כללית",
+          "natureOfAccident": "תאונת עבודה",
+          "medicalDiagnoses": "שבר ברגל ימין"
+        }
+      },
+      "validation": {
+        "is_valid": true,
+        "field_validation": {
+          "idNumber": {"valid": true},
+          "dateOfBirth": {"valid": true},
+          "mobilePhone": {"valid": true}, 
+          "dateOfInjury": {"valid": true}
+        }
+      }
+    },
+    {
+      "document_name": "283_ex2.pdf",
+      "confidence": 0.92,
+      "language_detected": "Hebrew",
+      "processing_time": 1.8,
+      "extracted_fields": {
+        "lastName": "לוי",
+        "firstName": "שרה",
+        "idNumber": "987654321",
+        "gender": "נקבה", 
+        "dateOfBirth": {
+          "day": "22",
+          "month": "07", 
+          "year": "1990"
+        },
+        "address": {
+          "street": "רחוב בן גוריון",
+          "houseNumber": "8",
+          "entrance": "",
+          "apartment": "5",
+          "city": "חיפה", 
+          "postalCode": "3100101",
+          "poBox": ""
+        },
+        "landlinePhone": "04-9876543",
+        "mobilePhone": "052-9876543", 
+        "jobType": "מורה",
+        "dateOfInjury": {
+          "day": "05",
+          "month": "12",
+          "year": "2023"
+        },
+        "timeOfInjury": "10:15",
+        "accidentLocation": "בית הספר",
+        "accidentAddress": "רחוב החינוך 15, חיפה",
+        "accidentDescription": "החלקה במדרגות בית הספר בזמן הפסקה. המורה ירדה במדרגות ונפלה.",
+        "injuredBodyPart": "יד שמאל",
+        "signature": "שרה לוי",
+        "formFillingDate": {
+          "day": "07",
+          "month": "12",
+          "year": "2023"
+        },
+        "formReceiptDateAtClinic": {
+          "day": "08",
+          "month": "12",
+          "year": "2023"
+        },
+        "medicalInstitutionFields": {
+          "healthFundMember": "מכבי",
+          "natureOfAccident": "תאונה במקום עבודה", 
+          "medicalDiagnoses": "נקע ביד שמאל"
+        }
+      },
+      "validation": {
+        "is_valid": true,
+        "field_validation": {
+          "idNumber": {"valid": true},
+          "dateOfBirth": {"valid": true},
+          "mobilePhone": {"valid": true},
+          "dateOfInjury": {"valid": true}
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,119 @@
+/* Modern Resizable Panels - ResizablePanels.css */
+.resizable-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+}
+
+.resizable-left,
+.resizable-right {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.resizable-left {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 0 20px 20px 0;
+  margin: 20px 0 20px 20px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  min-width: 350px;
+  overflow: hidden;
+}
+
+.resizable-right {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 20px 0 0 20px;
+  margin: 20px 20px 20px 0;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  min-width: 500px;
+  overflow: auto;
+}
+
+.resizable-divider {
+  width: 8px;
+  cursor: ew-resize;
+  background: rgba(255, 255, 255, 0.3);
+  position: relative;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.resizable-divider:hover {
+  background: rgba(255, 255, 255, 0.5);
+  width: 12px;
+}
+
+.resizable-divider::before {
+  content: '';
+  position: absolute;
+  width: 4px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.resizable-divider:hover::before {
+  opacity: 1;
+}
+
+/* Active state */
+.resizable-divider:active {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+/* Responsive design */
+@media (max-width: 1024px) {
+  .resizable-left,
+  .resizable-right {
+    margin: 10px;
+    border-radius: 15px;
+  }
+  
+  .resizable-left {
+    border-radius: 0 15px 15px 0;
+    margin: 10px 0 10px 10px;
+  }
+  
+  .resizable-right {
+    border-radius: 15px 0 0 15px;
+    margin: 10px 10px 10px 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .resizable-container {
+    flex-direction: column;
+  }
+  
+  .resizable-left,
+  .resizable-right {
+    width: 100% !important;
+    height: 50%;
+    margin: 5px;
+    border-radius: 15px;
+  }
+  
+  .resizable-divider {
+    width: 100%;
+    height: 8px;
+    cursor: ns-resize;
+  }
+  
+  .resizable-divider::before {
+    width: 40px;
+    height: 4px;
+  }
+}
