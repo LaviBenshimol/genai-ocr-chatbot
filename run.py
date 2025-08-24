@@ -45,14 +45,14 @@ def main():
         
         print("🚀 Starting Streamlit server...")
         
-        # Create a process to run Streamlit
+        # Create a process to run Streamlit with visible output
         process = subprocess.Popen([
             sys.executable, "-m", "streamlit", "run", 
             str(streamlit_app_path),
             "--server.port", "8501",
             "--server.headless", "true",
             "--browser.gatherUsageStats", "false"
-        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        ], text=True)  # Remove stdout/stderr capture to show output
         
         # Wait a moment for the server to start
         time.sleep(3)

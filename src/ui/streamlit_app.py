@@ -5,12 +5,25 @@ Provides interfaces for both Phase 1 (OCR) and Phase 2 (Chatbot) functionality
 
 import streamlit as st
 import sys
+import logging
 from pathlib import Path
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
+
+# Set up logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),  # Console output
+        logging.FileHandler(project_root / "logs" / "streamlit_app.log")  # File output
+    ]
+)
+
+logger = logging.getLogger(__name__)
 
 from src.ui.phase1_ui import render_phase1
 from src.ui.phase2_ui import render_phase2

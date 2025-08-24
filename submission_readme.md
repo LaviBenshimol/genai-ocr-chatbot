@@ -11,27 +11,28 @@ This project implements a two-phase GenAI system for document processing and med
 
 ```mermaid
 graph TB
-    A[User Interface] --> B[Main Application]
-    B --> C[Phase 1: OCR Service]
-    B --> D[Phase 2: Chatbot Service]
+    A[Streamlit UI] --> B[MCP Client Layer]
+    B --> C[Phase 1 MCP Server :3001]
+    B --> D[Phase 2 MCP Server :3002]
     
-    C --> E[Azure Document Intelligence]
-    C --> F[Azure OpenAI GPT-4o]
-    C --> G[JSON Field Extraction]
+    C --> E[Document Intelligence]
+    C --> F[Azure OpenAI]
+    C --> G[Israeli Validation]
+    C --> H[User Profile Storage]
     
-    D --> H[User Information Collection]
-    D --> I[Medical Services Q&A]
-    H --> F
-    I --> F
-    I --> J[Knowledge Base<br/>HTML Files]
+    D --> I[Chat Session Manager]
+    D --> J[Knowledge Service]
+    D --> K[Azure OpenAI]
     
-    K[Mock Data Layer] --> C
-    K --> D
+    H --> L[users.json<br/>Single File Storage]
+    I --> L
+    J --> M[HTML Knowledge Base<br/>Two-Stage Processing]
     
     style A fill:#e1f5fe
     style C fill:#f3e5f5
     style D fill:#e8f5e8
-    style K fill:#fff3e0
+    style L fill:#fff3e0
+    style M fill:#f0f4c3
 ```
 
 ## Project Structure
@@ -40,109 +41,94 @@ graph TB
 genai-ocr-chatbot/
 ├── README.md                    # Original assignment requirements
 ├── submission_readme.md         # This file
-├── run.py                      # Main runner script
+├── run.py                      # Main runner script (starts MCP servers + UI)
 ├── requirements.txt            # Python dependencies
-├── config/
-│   ├── __init__.py
-│   ├── azure_config.py         # Azure OpenAI configuration
-│   └── settings.py             # Application settings
+├── .env                        # Azure credentials
+│
+├── services/                    # MCP Servers
+│   ├── phase1_server.py        # OCR MCP Server (includes validation)
+│   ├── phase2_server.py        # Chat MCP Server
+│   └── shared_utils.py         # Common Azure client + utilities
+│
 ├── src/
-│   ├── __init__.py
-│   ├── phase1/
+│   ├── ui/                     # Streamlit UI (existing, preserved)
 │   │   ├── __init__.py
-│   │   ├── ocr_service.py      # Document Intelligence integration
-│   │   ├── field_extractor.py # Field extraction logic
-│   │   └── mock_ocr.py         # Mock OCR responses for demo
-│   ├── phase2/
-│   │   ├── __init__.py
-│   │   ├── chatbot_service.py  # Main chatbot logic
-│   │   ├── user_collector.py   # User information collection
-│   │   ├── qa_engine.py        # Q&A processing
-│   │   └── knowledge_base.py   # HTML knowledge base parser
-│   ├── shared/
-│   │   ├── __init__.py
-│   │   ├── azure_client.py     # Azure OpenAI client
-│   │   └── utils.py            # Shared utilities
-│   └── ui/
-│       ├── __init__.py
-│       ├── streamlit_app.py    # Main UI application
-│       ├── phase1_ui.py        # OCR interface
-│       └── phase2_ui.py        # Chatbot interface
+│   │   ├── streamlit_app.py    # Main UI application
+│   │   ├── phase1_ui.py        # OCR interface
+│   │   └── phase2_ui.py        # Chatbot interface
+│   │
+│   └── knowledge_service.py    # Two-stage knowledge service
+│
 ├── data/
-│   ├── phase1_data/            # Moved from root
+│   ├── phase1_data/            # OCR documents
 │   │   ├── 283_ex1.pdf
 │   │   ├── 283_ex2.pdf
 │   │   ├── 283_ex3.pdf
 │   │   └── 283_raw.pdf
-│   ├── phase2_data/            # Moved from root
+│   ├── phase2_data/            # HTML knowledge base
 │   │   ├── alternative_services.html
 │   │   ├── communication_clinic_services.html
 │   │   ├── dentel_services.html
 │   │   ├── optometry_services.html
 │   │   ├── pragrency_services.html
 │   │   └── workshops_services.html
-│   └── mock_responses/
-│       ├── phase1_mock.json    # Mock OCR extraction results
-│       └── phase2_mock.json    # Mock chatbot responses
+│   ├── users.json              # Single user storage file
+│   ├── uploads/                # Temporary file uploads
+│   └── mock_responses/         # Mock data for testing
+│       ├── phase1_mock.json
+│       └── phase2_mock.json
+│
+├── logs/                       # MCP Server logs
+│   ├── phase1/                 # Phase 1 MCP server logs
+│   └── phase2/                 # Phase 2 MCP server logs
+│
+├── config/
+│   └── settings.py            # Application settings
+│
 ├── tests/
-│   ├── __init__.py
 │   ├── test_phase1.py
 │   └── test_phase2.py
+│
 └── legacy/
-    └── UI/                     # Original unrelated UI (moved)
+    └── UI/                    # Original unrelated UI (moved)
 ```
 
-## Phase 1: OCR Field Extraction Flow
+## User Flow: File-Driven Context
 
 ```mermaid
 sequenceDiagram
     participant U as User
     participant UI as Streamlit UI
-    participant OCR as OCR Service
-    participant DI as Document Intelligence
-    participant AI as Azure OpenAI
+    participant P1 as Phase1 MCP
+    participant P2 as Phase2 MCP
+    participant KS as Knowledge Service
+    participant DB as users.json
     
-    U->>UI: Upload PDF/JPG
-    UI->>OCR: Process document
-    OCR->>DI: Extract text & layout
-    DI-->>OCR: Raw text data
-    OCR->>AI: Extract structured fields
-    AI-->>OCR: JSON response
-    OCR->>OCR: Validate & format
-    OCR-->>UI: Structured JSON
-    UI-->>U: Display extracted fields
-```
-
-## Phase 2: Chatbot Service Flow
-
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant UI as Chat Interface
-    participant CS as Chatbot Service
-    participant UC as User Collector
-    participant QA as Q&A Engine
-    participant KB as Knowledge Base
-    participant AI as Azure OpenAI
+    Note over U,DB: Optional File Upload
+    U->>UI: Upload OCR document (optional)
+    UI->>P1: Process document
+    P1->>P1: Extract fields + validate (Israeli ID, phone)
+    P1->>DB: Store user profile
+    P1-->>UI: OCR results + user stored
     
-    U->>UI: Start conversation
-    UI->>CS: Initialize session
-    CS->>UC: Collect user info
-    UC->>AI: Process information
-    AI-->>UC: Validation response
-    UC-->>CS: User profile
-    CS->>QA: Enable Q&A mode
+    Note over U,DB: Chat Session (with or without context)
+    U->>UI: Ask medical question
+    UI->>P2: Question + session_id
+    P2->>DB: Check user context
     
-    loop Q&A Session
-        U->>UI: Ask question
-        UI->>QA: Process query
-        QA->>KB: Search knowledge base
-        KB-->>QA: Relevant content
-        QA->>AI: Generate answer
-        AI-->>QA: Response
-        QA-->>UI: Answer with context
-        UI-->>U: Display response
+    alt User has uploaded file
+        DB-->>P2: User profile (HMO, tier)
+        P2->>KS: Get personalized info
+        KS-->>P2: HMO+tier specific answer
+    else No file uploaded
+        DB-->>P2: No user context
+        P2->>KS: Get general info  
+        KS-->>P2: General service information
     end
+    
+    P2->>DB: Store chat message
+    P2-->>UI: Contextualized response
+    UI-->>U: Display answer
 ```
 
 ## Mock Data Implementation

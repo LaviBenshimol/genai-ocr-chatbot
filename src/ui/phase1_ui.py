@@ -25,26 +25,97 @@ def render_phase1(demo_mode=True):
     with col1:
         st.subheader("📤 Document Upload")
         
-        # File uploader
+        # File uploader - PDF only for production
         uploaded_file = st.file_uploader(
-            "Choose a PDF or image file",
-            type=['pdf', 'jpg', 'jpeg', 'png'],
-            help="Upload National Insurance Institute forms in PDF or image format"
+            "Choose a PDF file",
+            type=['pdf'],
+            help="Upload National Insurance Institute forms in PDF format only"
         )
         
         if uploaded_file is not None:
-            st.success(f"✅ File uploaded: {uploaded_file.name}")
+            # DEBUG: Log uploaded file details
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"DEBUG - File uploaded: name={uploaded_file.name}, size={uploaded_file.size}, type={uploaded_file.type}")
+            print(f"🔍 DEBUG - Uploaded file object: {type(uploaded_file)}, name={uploaded_file.name}")
             
-            # Display file info
-            file_details = {
-                "Filename": uploaded_file.name,
-                "File size": f"{uploaded_file.size} bytes",
-                "File type": uploaded_file.type
-            }
+            # DEBUG: Show debug info in Streamlit UI
+            with st.expander("🐛 Debug Information", expanded=False):
+                st.write("**File Upload Debug:**")
+                st.write(f"- File name: `{uploaded_file.name}`")
+                st.write(f"- File size: `{uploaded_file.size} bytes`")
+                st.write(f"- File type: `{uploaded_file.type}`")
+                st.write(f"- File object type: `{type(uploaded_file)}`")
+                st.write(f"- Demo mode: `{demo_mode}`")
             
-            with st.expander("📋 File Details"):
-                for key, value in file_details.items():
-                    st.write(f"**{key}**: {value}")
+            # Import file validator
+            from src.file_validator import validate_uploaded_file
+            
+            with st.spinner("🔍 Validating file..."):
+                # Validate the uploaded file
+                validation_result = validate_uploaded_file(uploaded_file)
+                
+                # DEBUG: Log validation result
+                logger.info(f"DEBUG - Validation result: valid={validation_result['is_valid']}, errors={len(validation_result['errors'])}")
+                print(f"🔍 DEBUG - Validation passed: {validation_result['is_valid']}")
+                if not validation_result['is_valid']:
+                    print(f"🔍 DEBUG - Validation errors: {validation_result['errors']}")
+            
+            if validation_result["is_valid"]:
+                st.success(f"✅ File validated: {uploaded_file.name}")
+                
+                # Display file info
+                file_info = validation_result["file_info"]
+                file_details = {
+                    "Filename": file_info["name"],
+                    "File size": f"{file_info['size_mb']:.2f} MB ({file_info['size_bytes']} bytes)",
+                    "File type": file_info["mime_type"],
+                    "Extension": file_info["extension"]
+                }
+                
+                with st.expander("📋 File Details"):
+                    for key, value in file_details.items():
+                        st.write(f"**{key}**: {value}")
+                
+                # Display validation checks
+                with st.expander("✅ Validation Results"):
+                    for check_name, check_result in validation_result["validation_checks"].items():
+                        if check_result["passed"]:
+                            st.success(f"✅ {check_name}: {check_result['message']}")
+                        else:
+                            st.error(f"❌ {check_name}: {check_result['message']}")
+                
+                # Store validated file in session state for processing
+                st.session_state['validated_file'] = uploaded_file
+                st.session_state['file_validation'] = validation_result
+                
+            else:
+                st.error(f"❌ File validation failed: {uploaded_file.name}")
+                
+                # Display validation errors
+                for error in validation_result["errors"]:
+                    st.error(f"🚫 {error}")
+                
+                # Display warnings if any
+                for warning in validation_result["warnings"]:
+                    st.warning(f"⚠️ {warning}")
+                
+                # Display detailed validation checks
+                with st.expander("🔍 Detailed Validation Results"):
+                    for check_name, check_result in validation_result["validation_checks"].items():
+                        if check_result["passed"]:
+                            st.success(f"✅ {check_name}: {check_result['message']}")
+                        else:
+                            if check_result["severity"] == "error":
+                                st.error(f"❌ {check_name}: {check_result['message']}")
+                            else:
+                                st.warning(f"⚠️ {check_name}: {check_result['message']}")
+                
+                # Clear any previous validated file
+                if 'validated_file' in st.session_state:
+                    del st.session_state['validated_file']
+                if 'file_validation' in st.session_state:
+                    del st.session_state['file_validation']
         
         # Language selection
         st.subheader("🌐 Language Settings")
@@ -54,26 +125,49 @@ def render_phase1(demo_mode=True):
             index=2
         )
         
-        # Processing button
+        # Processing button - only enabled for validated files
+        has_validated_file = 'validated_file' in st.session_state and st.session_state.get('validated_file') is not None
+        
         process_button = st.button(
             "🚀 Extract Fields",
-            disabled=uploaded_file is None,
-            type="primary"
+            disabled=not has_validated_file,
+            type="primary",
+            help="File must be validated before processing"
         )
         
-        if process_button:
+        if not has_validated_file and uploaded_file is not None:
+            st.info("📋 Please wait for file validation to complete before processing.")
+        
+        if process_button and has_validated_file:
+
+            validated_file = st.session_state['validated_file']
+            file_validation = st.session_state['file_validation']
+            
             with st.spinner("🔄 Processing document..."):
+
+                # Log the processing start
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(f"Starting OCR processing for validated file: {validated_file.name}")
+                
                 # Simulate processing time
                 import time
                 time.sleep(2)
                 
                 if demo_mode:
-                    # Load mock response
+                    # Load mock response with file info
                     mock_response = get_mock_extraction_result()
+                    mock_response['processed_file'] = file_validation['file_info']
+                    mock_response['validation_passed'] = True
+                    
                     st.session_state['extraction_result'] = mock_response
-                    st.success("✅ Fields extracted successfully!")
+                    st.success("✅ Fields extracted successfully from validated file!")
+                    
+                    logger.info(f"Mock OCR processing completed for: {validated_file.name}")
+                    
                 else:
-                    st.error("🔴 Production mode not yet implemented")
+                    st.error("🔴 Production mode not yet implemented - will call Phase 1 MCP server")
+                    logger.warning("Production mode called but not yet implemented")
     
     with col2:
         st.subheader("📊 Extraction Results")
