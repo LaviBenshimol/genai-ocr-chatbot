@@ -68,9 +68,9 @@ class ProjectLogger:
         
         # Log initialization
         if not cls._initialized:
-            logger.info(f"🚀 Logging system initialized")
-            logger.info(f"📁 Logs directory: {LOGS_DIR}")
-            logger.info(f"📝 Log level: {LOG_LEVEL}")
+            logger.info("Logging system initialized")
+            logger.info(f"Logs directory: {LOGS_DIR}")
+            logger.info(f"Log level: {LOG_LEVEL}")
             cls._initialized = True
         
         logger.debug(f"Logger configured for component: {component_name}")
