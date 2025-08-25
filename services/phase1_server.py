@@ -3,13 +3,22 @@ Phase 1 MCP Server: OCR Field Extraction Service
 Uses Azure Document Intelligence for Israeli National Insurance forms
 """
 import asyncio
+import json
 from datetime import datetime
+from io import BytesIO
 from typing import Any, Dict
+from azure.core.exceptions import HttpResponseError
 
-from azure.ai.formrecognizer import DocumentAnalysisClient
 from azure.core.credentials import AzureKeyCredential
+from azure.ai.documentintelligence import DocumentIntelligenceClient
+from azure.ai.documentintelligence.models import DocumentAnalysisFeature
+from openai import AzureOpenAI
 
 from config.settings import (
+    AZURE_OPENAI_ENDPOINT,
+    AZURE_OPENAI_API_KEY,
+    AZURE_OPENAI_API_VERSION,
+    AZURE_OPENAI_DEPLOYMENT_NAME,
     AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT,
     AZURE_DOCUMENT_INTELLIGENCE_KEY,
     AZURE_DOCUMENT_INTELLIGENCE_API_VERSION,
@@ -18,6 +27,65 @@ from config.settings import (
 from src.logger_config import get_logger
 
 logger = get_logger("phase1_server")
+
+SCHEMA = {
+    "type": "object", "additionalProperties": False,
+    "properties": {
+        "lastName": {"type": "string"}, "firstName": {"type": "string"},
+        "idNumber": {"type": "string"},
+        "gender": {"type": "string", "enum": ["male", "female", ""]},
+        "dateOfBirth": {"type": "object", "additionalProperties": False,
+                        "properties": {"day": {"type": "string"}, "month": {"type": "string"},
+                                       "year": {"type": "string"}},
+                        "required": ["day", "month", "year"]
+                        },
+        "address": {"type": "object", "additionalProperties": False,
+                    "properties": {
+                        "street": {"type": "string"}, "houseNumber": {"type": "string"},
+                        "entrance": {"type": "string"}, "apartment": {"type": "string"},
+                        "city": {"type": "string"}, "postalCode": {"type": "string"}, "poBox": {"type": "string"}
+                    },
+                    "required": ["street", "houseNumber", "entrance", "apartment", "city", "postalCode", "poBox"]
+                    },
+        "landlinePhone": {"type": "string"}, "mobilePhone": {"type": "string"},
+        "jobType": {"type": "string"},
+        "dateOfInjury": {"type": "object", "additionalProperties": False,
+                         "properties": {"day": {"type": "string"}, "month": {"type": "string"},
+                                        "year": {"type": "string"}},
+                         "required": ["day", "month", "year"]
+                         },
+        "timeOfInjury": {"type": "string"},
+        "accidentLocation": {"type": "string"},
+        "accidentAddress": {"type": "string"},
+        "accidentDescription": {"type": "string"},
+        "injuredBodyPart": {"type": "string"},
+        "signature": {"type": "string"},
+        "formFillingDate": {"type": "object", "additionalProperties": False,
+                            "properties": {"day": {"type": "string"}, "month": {"type": "string"},
+                                           "year": {"type": "string"}},
+                            "required": ["day", "month", "year"]
+                            },
+        "formReceiptDateAtClinic": {"type": "object", "additionalProperties": False,
+                                    "properties": {"day": {"type": "string"}, "month": {"type": "string"},
+                                                   "year": {"type": "string"}},
+                                    "required": ["day", "month", "year"]
+                                    },
+        "medicalInstitutionFields": {"type": "object", "additionalProperties": False,
+                                     "properties": {
+                                         "healthFundMember": {"type": "string"},
+                                         "natureOfAccident": {"type": "string"},
+                                         "medicalDiagnoses": {"type": "string"}
+                                     },
+                                     "required": ["healthFundMember", "natureOfAccident", "medicalDiagnoses"]
+                                     }
+    },
+    "required": [
+        "lastName", "firstName", "idNumber", "gender", "dateOfBirth", "address",
+        "landlinePhone", "mobilePhone", "jobType", "dateOfInjury", "timeOfInjury",
+        "accidentLocation", "accidentAddress", "accidentDescription", "injuredBodyPart",
+        "signature", "formFillingDate", "formReceiptDateAtClinic", "medicalInstitutionFields"
+    ]
+}
 
 
 class Phase1OCRService:
@@ -38,10 +106,10 @@ class Phase1OCRService:
             )
 
         try:
-            self.client = DocumentAnalysisClient(
+            self.client = DocumentIntelligenceClient(
                 endpoint=self.endpoint,
                 credential=AzureKeyCredential(self.key),
-                api_version=self.api_version,
+                # api_version=self.api_version,  # default is 2024-11-30; keeping yours is fine
             )
             logger.info(f"Azure Document Intelligence initialized with model: {self.model_id}")
         except Exception as e:
@@ -54,12 +122,30 @@ class Phase1OCRService:
         """
         logger.info(f"Analyzing document: {filename}")
         try:
-            poller = await asyncio.to_thread(
-                self.client.begin_analyze_document,
-                self.model_id,
-                document=file_bytes,  # no explicit content_type here
-            )
-            result = await asyncio.to_thread(poller.result)
+            model_id = self.model_id or "prebuilt-layout"
+            try:
+                # run the sync SDK call in a worker thread so we don't block the event loop
+                poller = await asyncio.to_thread(
+                    self.client.begin_analyze_document,
+                    model_id,
+                    BytesIO(file_bytes),  # <-- pass the bytes you received
+                    features=[DocumentAnalysisFeature.KEY_VALUE_PAIRS],
+                )
+                result = await asyncio.to_thread(poller.result)
+            except HttpResponseError as e:
+                # Friendly fallback if someone configured a model that doesn't support KV
+                if ("keyValuePairs" in str(e)) and (model_id != "prebuilt-layout"):
+                    logger.warning("Retrying with prebuilt-layout due to keyValuePairs support.")
+                    poller = await asyncio.to_thread(
+                        self.client.begin_analyze_document,
+                        "prebuilt-layout",
+                        BytesIO(file_bytes),
+                        features=[DocumentAnalysisFeature.KEY_VALUE_PAIRS],
+                    )
+                    result = await asyncio.to_thread(poller.result)
+                else:
+                    logger.error(f"Document analysis failed: {e}")
+                    raise
 
             full_text = ""
             pages = []
@@ -122,70 +208,54 @@ class Phase1OCRService:
             logger.error(f"OCR analysis failed for {filename}: {e}")
             raise
 
-    async def process_document(self, file_bytes: bytes, filename: str, language: str = "auto") -> Dict[str, Any]:
-        """
-        Wrapper around analyze_document that returns a success flag and test-friendly fields.
-        Adds a 'language' arg and returns 'extracted_fields' + 'validation_results'
-        so tests can run without changes.
-        """
-        logger.info(f"Processing document: {filename} (language={language})")
-        result = {
+    def _build_messages(self, full_text: str, kv_pairs: list[dict], language_hint: str):
+        system = (
+            "You extract fields from Israeli ביטוח לאומי medical forms. "
+            "Return ONLY the JSON that matches the provided JSON Schema. "
+            "If a field is missing or unreadable, use an empty string. "
+            "Normalize dates into day/month/year; times HH:MM; "
+            "map Hebrew or English labels to the canonical JSON keys."
+        )
+        user = (
+            f"Language hint: {language_hint}\n"
+            f"Key/Value candidates (JSON): {json.dumps(kv_pairs, ensure_ascii=False)}\n\n"
+            f"Full text:\n{full_text}"
+        )
+        return [{"role": "system", "content": system}, {"role": "user", "content": user}]
+
+    def _extract_fields_with_llm(self, full_text: str, kv_pairs: list[dict], language_hint: str = "auto"):
+        client = AzureOpenAI(
+            azure_endpoint=AZURE_OPENAI_ENDPOINT,  # e.g. https://<resource>.openai.azure.com/
+            api_key=AZURE_OPENAI_API_KEY,
+            api_version=AZURE_OPENAI_API_VERSION or "2024-10-21",
+        )
+        messages = self._build_messages(full_text, kv_pairs, language_hint)
+
+        completion = client.chat.completions.create(
+            model=AZURE_OPENAI_DEPLOYMENT_NAME,  # <-- DEPLOYMENT NAME, not model name
+            temperature=0,
+            messages=messages,
+            response_format={
+                "type": "json_schema",
+                "json_schema": {"name": "NIIForm", "schema": SCHEMA, "strict": True},
+            },
+        )
+        content = completion.choices[0].message.content
+        return json.loads(content)
+
+
+    async def process_document(self, file_bytes: bytes, filename: str, language: str = "auto"):
+        analysis = await self.analyze_document(file_bytes, filename)
+        fields = self._extract_fields_with_llm(analysis["full_text"], analysis["key_value_pairs"], language)
+
+        # minimal validation hook
+        valid = True  # you can add checks here
+        return {
             "filename": filename,
             "language": language,
-            "processing_timestamp": datetime.now().isoformat(),
-            "success": False,
-            "analysis": None,
-            "extracted_fields": {},  # <-- expected by tests
-            "validation_results": {  # <-- expected by tests
-                "overall_valid": False,
-                "field_validations": {}
-            },
+            "success": True,
+            "analysis": analysis,
+            "extracted_fields": fields,
+            "validation_results": {"overall_valid": valid, "field_validations": {}},
             "errors": [],
         }
-
-        try:
-            analysis = await self.analyze_document(file_bytes, filename)
-            result["analysis"] = analysis
-
-            # Minimal, test-safe "extraction": provide at least one non-empty leaf
-            # so the test's percentage math won't divide by zero.
-            raw_text = analysis.get("full_text", "") or ""
-            result["extracted_fields"] = {
-                "raw_text": raw_text[:2000]  # keep things small; adjust as you like
-            }
-
-            # Trivial validation placeholder; adjust when you add real checks
-            result["validation_results"] = {
-                "overall_valid": bool(raw_text),
-                "field_validations": {}
-            }
-
-            result["success"] = True
-        except Exception as e:
-            logger.error(f"Processing failed for {filename}: {e}")
-            result["errors"].append(str(e))
-
-        return result
-
-
-# For testing without MCP protocol
-async def test_ocr_service():
-    """Test function for OCR service"""
-    import json
-    print("🧪 Testing OCR Service...")
-    
-    service = Phase1OCRService()
-    
-    # Test with a sample file (you would load actual file bytes here)
-    # This is just for testing the service structure
-    sample_text = "Test document content"
-    sample_bytes = sample_text.encode('utf-8')
-    
-    result = await service.process_document(sample_bytes, "test.pdf", "Hebrew")
-    
-    print(f"Test result: {json.dumps(result, indent=2, ensure_ascii=False)}")
-
-
-if __name__ == "__main__":
-    # Run test
-    asyncio.run(test_ocr_service())

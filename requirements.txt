@@ -27,7 +27,7 @@ python-multipart==0.0.6
 beautifulsoup4==4.12.2
 
 # Document Processing Fallback
-markitdown==0.0.1a2
+# markitdown==0.0.1a2
 
 # Development and Testing
 pytest==7.4.4

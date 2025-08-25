@@ -4,10 +4,8 @@ Centralized configuration management with environment variable loading
 """
 import os
 from pathlib import Path
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
+from dotenv import load_dotenv, find_dotenv
+load_dotenv(find_dotenv(), override=False)
 
 # Project paths
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -34,7 +32,7 @@ MCP_PHASE2_PORT = int(os.getenv("MCP_PHASE2_PORT", "3002"))
 # Azure OpenAI settings
 AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "")
 AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY", "")
-AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-01")
+AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-11-20")
 AZURE_OPENAI_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "")
 
 # Azure Document Intelligence settings
