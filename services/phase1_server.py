@@ -6,7 +6,8 @@ import asyncio
 import json
 from datetime import datetime
 from io import BytesIO
-from typing import Any, Dict
+import re, math
+from typing import Any, Dict, List, Tuple
 from azure.core.exceptions import HttpResponseError
 
 from azure.core.credentials import AzureKeyCredential
@@ -28,65 +29,159 @@ from src.logger_config import get_logger
 
 logger = get_logger("phase1_server")
 
+# SCHEMA = {
+#     "type": "object", "additionalProperties": False,
+#     "properties": {
+#         "lastName": {"type": "string"}, "firstName": {"type": "string"},
+#         "idNumber": {"type": "string"},
+#         "gender": {"type": "string", "enum": ["male", "female", ""]},
+#         "dateOfBirth": {"type": "object", "additionalProperties": False,
+#                         "properties": {"day": {"type": "string"}, "month": {"type": "string"},
+#                                        "year": {"type": "string"}},
+#                         "required": ["day", "month", "year"]
+#                         },
+#         "address": {"type": "object", "additionalProperties": False,
+#                     "properties": {
+#                         "street": {"type": "string"}, "houseNumber": {"type": "string"},
+#                         "entrance": {"type": "string"}, "apartment": {"type": "string"},
+#                         "city": {"type": "string"}, "postalCode": {"type": "string"}, "poBox": {"type": "string"}
+#                     },
+#                     "required": ["street", "houseNumber", "entrance", "apartment", "city", "postalCode", "poBox"]
+#                     },
+#         "landlinePhone": {"type": "string"}, "mobilePhone": {"type": "string"},
+#         "jobType": {"type": "string"},
+#         "dateOfInjury": {"type": "object", "additionalProperties": False,
+#                          "properties": {"day": {"type": "string"}, "month": {"type": "string"},
+#                                         "year": {"type": "string"}},
+#                          "required": ["day", "month", "year"]
+#                          },
+#         "timeOfInjury": {"type": "string"},
+#         "accidentLocation": {"type": "string"},
+#         "accidentAddress": {"type": "string"},
+#         "accidentDescription": {"type": "string"},
+#         "injuredBodyPart": {"type": "string"},
+#         "signature": {"type": "string"},
+#         "formFillingDate": {"type": "object", "additionalProperties": False,
+#                             "properties": {"day": {"type": "string"}, "month": {"type": "string"},
+#                                            "year": {"type": "string"}},
+#                             "required": ["day", "month", "year"]
+#                             },
+#         "formReceiptDateAtClinic": {"type": "object", "additionalProperties": False,
+#                                     "properties": {"day": {"type": "string"}, "month": {"type": "string"},
+#                                                    "year": {"type": "string"}},
+#                                     "required": ["day", "month", "year"]
+#                                     },
+#         "medicalInstitutionFields": {"type": "object", "additionalProperties": False,
+#                                      "properties": {
+#                                          "healthFundMember": {"type": "string"},
+#                                          "natureOfAccident": {"type": "string"},
+#                                          "medicalDiagnoses": {"type": "string"}
+#                                      },
+#                                      "required": ["healthFundMember", "natureOfAccident", "medicalDiagnoses"]
+#                                      }
+#     },
+#     "required": [
+#         "lastName", "firstName", "idNumber", "gender", "dateOfBirth", "address",
+#         "landlinePhone", "mobilePhone", "jobType", "dateOfInjury", "timeOfInjury",
+#         "accidentLocation", "accidentAddress", "accidentDescription", "injuredBodyPart",
+#         "signature", "formFillingDate", "formReceiptDateAtClinic", "medicalInstitutionFields"
+#     ]
+# }
+
 SCHEMA = {
-    "type": "object", "additionalProperties": False,
+    "type": "object",
+    "additionalProperties": False,
     "properties": {
-        "lastName": {"type": "string"}, "firstName": {"type": "string"},
+        # --- Header (section 0) ---
+        "requestHeaderText": {"type": "string"},     # בקשה למתן טיפול רפואי...
+        "destinationOrganization": {"type": "string"},  # אל קופ"ח/ביה"ח (free text)
+
+        # --- Section 2 (personal) ---
+        "lastName": {"type": "string"},
+        "firstName": {"type": "string"},
         "idNumber": {"type": "string"},
         "gender": {"type": "string", "enum": ["male", "female", ""]},
-        "dateOfBirth": {"type": "object", "additionalProperties": False,
-                        "properties": {"day": {"type": "string"}, "month": {"type": "string"},
-                                       "year": {"type": "string"}},
-                        "required": ["day", "month", "year"]
-                        },
-        "address": {"type": "object", "additionalProperties": False,
-                    "properties": {
-                        "street": {"type": "string"}, "houseNumber": {"type": "string"},
-                        "entrance": {"type": "string"}, "apartment": {"type": "string"},
-                        "city": {"type": "string"}, "postalCode": {"type": "string"}, "poBox": {"type": "string"}
-                    },
-                    "required": ["street", "houseNumber", "entrance", "apartment", "city", "postalCode", "poBox"]
-                    },
-        "landlinePhone": {"type": "string"}, "mobilePhone": {"type": "string"},
+
+        "dateOfBirth": {
+            "type": "object", "additionalProperties": False,
+            "properties": {"day": {"type": "string"}, "month": {"type": "string"}, "year": {"type": "string"}},
+            "required": ["day", "month", "year"]
+        },
+
+        "address": {
+            "type": "object", "additionalProperties": False,
+            "properties": {
+                "street": {"type": "string"},
+                "houseNumber": {"type": "string"},
+                "entrance": {"type": "string"},
+                "apartment": {"type": "string"},
+                "city": {"type": "string"},
+                "postalCode": {"type": "string"},
+                "poBox": {"type": "string"}
+            },
+            "required": ["street", "houseNumber", "entrance", "apartment", "city", "postalCode", "poBox"]
+        },
+
+        "landlinePhone": {"type": "string"},
+        "mobilePhone": {"type": "string"},
+
+        # --- Section 3 (accident) ---
         "jobType": {"type": "string"},
-        "dateOfInjury": {"type": "object", "additionalProperties": False,
-                         "properties": {"day": {"type": "string"}, "month": {"type": "string"},
-                                        "year": {"type": "string"}},
-                         "required": ["day", "month", "year"]
-                         },
-        "timeOfInjury": {"type": "string"},
+        "dateOfInjury": {
+            "type": "object", "additionalProperties": False,
+            "properties": {"day": {"type": "string"}, "month": {"type": "string"}, "year": {"type": "string"}},
+            "required": ["day", "month", "year"]
+        },
+        "timeOfInjury": {"type": "string"},  # HH:MM
+
         "accidentLocation": {"type": "string"},
         "accidentAddress": {"type": "string"},
         "accidentDescription": {"type": "string"},
         "injuredBodyPart": {"type": "string"},
-        "signature": {"type": "string"},
-        "formFillingDate": {"type": "object", "additionalProperties": False,
-                            "properties": {"day": {"type": "string"}, "month": {"type": "string"},
-                                           "year": {"type": "string"}},
-                            "required": ["day", "month", "year"]
-                            },
-        "formReceiptDateAtClinic": {"type": "object", "additionalProperties": False,
-                                    "properties": {"day": {"type": "string"}, "month": {"type": "string"},
-                                                   "year": {"type": "string"}},
-                                    "required": ["day", "month", "year"]
-                                    },
-        "medicalInstitutionFields": {"type": "object", "additionalProperties": False,
-                                     "properties": {
-                                         "healthFundMember": {"type": "string"},
-                                         "natureOfAccident": {"type": "string"},
-                                         "medicalDiagnoses": {"type": "string"}
-                                     },
-                                     "required": ["healthFundMember", "natureOfAccident", "medicalDiagnoses"]
-                                     }
+
+        # checkboxes in §3 (and a free-text "other")
+        "accidentContext": {
+            "type": "string",
+            "enum": ["factory", "commute_to_work", "commute_from_work", "work_travel", "traffic", "non_vehicle", "", "other"]
+        },
+        "accidentContextOther": {"type": "string"},
+
+        # --- Section 4 (signature/name) ---
+        "applicantName": {"type": "string"},
+        "signaturePresent": {"type": "boolean"},  # True if any mark/ink near חתימה
+
+        # --- Dates in page header/footer (section 0) ---
+        "formFillingDate": {
+            "type": "object", "additionalProperties": False,
+            "properties": {"day": {"type": "string"}, "month": {"type": "string"}, "year": {"type": "string"}},
+            "required": ["day", "month", "year"]
+        },
+        "formReceiptDateAtClinic": {
+            "type": "object", "additionalProperties": False,
+            "properties": {"day": {"type": "string"}, "month": {"type": "string"}, "year": {"type": "string"}},
+            "required": ["day", "month", "year"]
+        },
+
+        # --- Section 5 (clinic-only) ---
+        "medicalInstitutionFields": {
+            "type": "object", "additionalProperties": False,
+            "properties": {
+                "isHealthFundMember": {"type": "boolean"},
+                "healthFundName": {"type": "string", "enum": ["clalit", "maccabi", "meuhedet", "leumit", ""]},
+                "natureOfAccident": {"type": "string"},
+                "medicalDiagnoses": {"type": "string"}
+            },
+            "required": ["isHealthFundMember", "healthFundName", "natureOfAccident", "medicalDiagnoses"]
+        }
     },
     "required": [
         "lastName", "firstName", "idNumber", "gender", "dateOfBirth", "address",
         "landlinePhone", "mobilePhone", "jobType", "dateOfInjury", "timeOfInjury",
         "accidentLocation", "accidentAddress", "accidentDescription", "injuredBodyPart",
-        "signature", "formFillingDate", "formReceiptDateAtClinic", "medicalInstitutionFields"
+        "formFillingDate", "formReceiptDateAtClinic", "medicalInstitutionFields",
+        "signaturePresent"  # present in output, True/False
     ]
 }
-
 
 class Phase1OCRService:
     """
