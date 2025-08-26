@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import "../components/styles/CTIViewer.css";
+import "./styles/CTIViewer.css";
 
 function CTIViewer({ onUrlSubmit, onConfigureExperiment, hasUrl, isGenerating, currentUrl }) {
   const [inputUrl, setInputUrl] = useState("");

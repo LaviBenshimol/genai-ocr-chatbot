@@ -41,6 +41,38 @@ AZURE_DOCUMENT_INTELLIGENCE_KEY = os.getenv("AZURE_DOCUMENT_INTELLIGENCE_KEY", "
 AZURE_DOCUMENT_INTELLIGENCE_API_VERSION = os.getenv("AZURE_DOCUMENT_INTELLIGENCE_API_VERSION", "2023-07-31")
 AZURE_DOC_INTEL_MODEL = os.getenv("AZURE_DOC_INTEL_MODEL", "prebuilt-document")
 
+# LLM Confidence Analysis settings
+# Temperature: Controls randomness in confidence scoring (0.0 = deterministic, 1.0 = random)
+# Low values (0.1-0.3) recommended for consistent confidence scoring
+LLM_CONFIDENCE_TEMPERATURE = float(os.getenv("LLM_CONFIDENCE_TEMPERATURE", "0.1"))
+
+# Top-p: Controls nucleus sampling diversity (0.1 = very focused, 1.0 = full vocabulary)
+# Moderate values (0.9-0.95) allow variation in reasoning explanations while maintaining focus
+LLM_CONFIDENCE_TOP_P = float(os.getenv("LLM_CONFIDENCE_TOP_P", "0.95"))
+
+# Max tokens: Maximum tokens for confidence analysis response
+# Should accommodate detailed field analysis + reasoning (1500-2500 recommended)
+LLM_CONFIDENCE_MAX_TOKENS = int(os.getenv("LLM_CONFIDENCE_MAX_TOKENS", "2000"))
+
+# Presence penalty: Reduces likelihood of repeating topics (-2.0 to 2.0)
+# 0.0 recommended for field coverage - we want all fields analyzed
+LLM_CONFIDENCE_PRESENCE_PENALTY = float(os.getenv("LLM_CONFIDENCE_PRESENCE_PENALTY", "0.0"))
+
+# Frequency penalty: Reduces likelihood of repeating tokens (-2.0 to 2.0) 
+# 0.0 recommended to allow consistent validation patterns across fields
+LLM_CONFIDENCE_FREQUENCY_PENALTY = float(os.getenv("LLM_CONFIDENCE_FREQUENCY_PENALTY", "0.0"))
+
+# Seed: For reproducible results (optional, set to None for random)
+# Use integer for deterministic confidence scoring, None for varied analysis
+LLM_CONFIDENCE_SEED = os.getenv("LLM_CONFIDENCE_SEED")
+if LLM_CONFIDENCE_SEED and LLM_CONFIDENCE_SEED.lower() != "none":
+    LLM_CONFIDENCE_SEED = int(LLM_CONFIDENCE_SEED)
+else:
+    LLM_CONFIDENCE_SEED = None
+
+# Timeout: Request timeout in seconds for confidence analysis
+LLM_CONFIDENCE_TIMEOUT = int(os.getenv("LLM_CONFIDENCE_TIMEOUT", "60"))
+
 # Application settings
 DEMO_MODE = os.getenv("DEMO_MODE", "true").lower() == "true"
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")

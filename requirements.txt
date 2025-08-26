@@ -6,10 +6,11 @@ azure-core==1.29.5
 openai==0.28.1
 python-dotenv==1.0.0
 
-# Web Framework
+# Web Framework - Stateless Microservice Architecture
 streamlit==1.31.0
-fastapi==0.109.0
-uvicorn==0.27.0
+flask==3.1.2
+flask-cors==6.0.1
+gunicorn==23.0.0
 
 # Data Processing
 pandas==2.1.4
@@ -22,6 +23,10 @@ python-dotenv==1.0.0
 pydantic==2.5.3
 requests==2.31.0
 python-multipart==0.0.6
+
+# Israeli Validation Libraries
+phonenumbers==9.0.12
+python-stdnum==2.1
 
 # HTML Parsing
 beautifulsoup4==4.12.2
