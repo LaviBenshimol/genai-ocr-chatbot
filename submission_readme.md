@@ -58,12 +58,12 @@ Simple microservices with direct connections for demo, designed for horizontal s
 
 ```mermaid
 graph TB
-    UI["🖥️ Streamlit UI<br/>localhost:8501"]
-    OCR["📄 OCR Service<br/>localhost:8001"]
-    CHAT["💬 Chat Service<br/>localhost:5000"]
-    METRICS["📊 Metrics Service<br/>localhost:8031"]
-    CHROMADB["🗃️ ChromaDB<br/>324 chunks"]
-    SQLITE["💾 SQLite<br/>Metrics"]
+    UI["Streamlit UI<br/>localhost:8501"]
+    OCR["OCR Service<br/>localhost:8001"]
+    CHAT["Chat Service<br/>localhost:5000"]
+    METRICS["Metrics Service<br/>localhost:8031"]
+    CHROMADB["ChromaDB<br/>324 chunks"]
+    SQLITE["SQLite<br/>Metrics"]
     
     UI --> OCR
     UI --> CHAT
