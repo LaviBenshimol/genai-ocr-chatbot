@@ -31,35 +31,29 @@ def render_phase2(demo_mode=False):
     # Check services health
     health_status = api_client.check_services_health()
     
-    # Display service status
-    col_h1, col_h2, col_h3 = st.columns(3)
-    with col_h1:
-        chat_status = health_status.get("chat-service", "unknown")
-        if "healthy" in chat_status:
-            st.success("✅ Chat Service: Healthy")
-        else:
-            st.error(f"❌ Chat Service: {chat_status}")
+    # Check V2 chat service first, then V1 fallback
+    chat_v2_status = health_status.get("chat-service-v2", "unknown")
+    chat_v1_status = health_status.get("chat-service", "unknown")
     
-    with col_h2:
-        metrics_status = health_status.get("metrics-service", "unknown") 
-        if "healthy" in metrics_status:
-            st.success("✅ Metrics Service: Healthy")
-        elif "offline" in metrics_status:
-            st.warning("⚠️ Metrics Service: Offline (Optional)")
-        else:
-            st.error(f"❌ Metrics Service: {metrics_status}")
+    chat_service_healthy = "healthy" in chat_v2_status or "healthy" in chat_v1_status
+    use_v2 = "healthy" in chat_v2_status
     
-    with col_h3:
-        # Show demo mode status
-        if demo_mode:
-            st.info("🎭 Demo Mode")
-        else:
-            st.warning("🔴 Production Mode")
+    # Store in session state for use throughout the session
+    st.session_state.use_chat_v2 = use_v2
     
-    # Check if chat service is available
-    if "healthy" not in health_status.get("chat-service", ""):
-        st.info("Please ensure the Chat microservice is running on port 8000")
+    if not chat_service_healthy:
+        st.warning("⚠️ Chat service appears to be offline.")
+        if use_v2:
+            st.info("Please ensure the V2 chat microservice is running on port 5002")
+        else:
+            st.info("Please ensure the chat microservice is running on port 5000 or 5002")
         return
+        
+    # Show which version we're using
+    if use_v2:
+        st.success("✅ Using Chat Service V2 (Enhanced)")
+    else:
+        st.info("ℹ️ Using Chat Service V1 (Fallback)")
     
     # Initialize session state for conversation
     if "phase2_messages" not in st.session_state:
@@ -174,15 +168,24 @@ def render_phase2(demo_mode=False):
                     "content": msg["content"]
                 })
             
-            # Call chat service
+            # Call chat service (V2 if available)
             with st.spinner("🤔 Thinking..."):
                 try:
-                    result = api_client.chat_turn(
-                        message=user_input,
-                        user_profile=st.session_state.phase2_user_profile,
-                        conversation_history=conversation_history,
-                        language=language
-                    )
+                    use_v2_service = st.session_state.get('use_chat_v2', False)
+                    if use_v2_service:
+                        result = api_client.chat_turn_v2(
+                            message=user_input,
+                            user_profile=st.session_state.phase2_user_profile,
+                            conversation_history=conversation_history,
+                            language=language
+                        )
+                    else:
+                        result = api_client.chat_turn(
+                            message=user_input,
+                            user_profile=st.session_state.phase2_user_profile,
+                            conversation_history=conversation_history,
+                            language=language
+                        )
                     
                     if result.get('success', True):  # Assume success if no explicit field
                         # Update user profile

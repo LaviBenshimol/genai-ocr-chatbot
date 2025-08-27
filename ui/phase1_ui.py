@@ -28,42 +28,14 @@ def render_phase1(demo_mode=False):
     # Initialize API client
     api_client = MicroserviceClient()
     
-    # Check services health
+    # Check services health  
     health_status = api_client.check_services_health()
     
-    # Display service status
-    col_h1, col_h2, col_h3, col_h4 = st.columns(4)
-    with col_h1:
-        ocr_status = health_status.get("health-form-di-service", "unknown")
-        if "healthy" in ocr_status:
-            st.success("✅ OCR Service: Healthy")
-        else:
-            st.error(f"❌ OCR Service: {ocr_status}")
-    
-    with col_h2:
-        chat_status = health_status.get("chat-service", "unknown")
-        if "healthy" in chat_status:
-            st.success("✅ Chat Service: Healthy")
-        else:
-            st.error(f"❌ Chat Service: {chat_status}")
-    
-    with col_h3:
-        metrics_status = health_status.get("metrics-service", "unknown") 
-        if "healthy" in metrics_status:
-            st.success("✅ Metrics Service: Healthy")
-        else:
-            st.error(f"❌ Metrics Service: {metrics_status}")
-    
-    with col_h4:
-        chromadb_status = health_status.get("chromadb", "unknown")
-        if "chunks loaded" in chromadb_status:
-            st.success(f"✅ ChromaDB: {chromadb_status}")
-        else:
-            st.error(f"❌ ChromaDB: {chromadb_status}")
-    
-    # Check if OCR service is available
-    if "healthy" not in health_status.get("health-form-di-service", ""):
-        st.info("Please ensure the OCR microservice is running on port 8001")
+    # Only check OCR service for Phase 1
+    ocr_status = health_status.get("health-form-di-service", "unknown")
+    if "healthy" not in ocr_status:
+        st.warning("⚠️ OCR Service appears to be offline. Please ensure the OCR microservice is running on port 8001")
+        st.info("You can still use the interface, but document processing won't work.")
         return
     
     # Create columns for layout
