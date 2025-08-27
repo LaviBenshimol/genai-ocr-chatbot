@@ -1,222 +1,325 @@
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/ed5b23ba-3e7e-46fd-a18c-8fcc520bee52" alt="kpmg-logo-1" width="200" />
-</p>
+# GenAI OCR Chatbot - Azure Medical Services Assistant
 
-<h1 align="center">GenAI Developer Assessment Assignment</h1>
+> **Azure-powered OCR and medical chatbot with stateless microservice architecture**
 
+## 🚀 Quick Start
 
-You are given 4 days to complete this assessment. For this assignment, you have access to the following Azure OpenAI resources:
-
-- Document Intelligence for Optical Character Recognition (OCR)
-- GPT-4o and GPT-4o Mini as Large Language Models (LLMs)
-- ADA 002 for text embeddings
-
-All required resources have already been deployed in Azure. There is no need to create additional resources for this assignment.
-
-The necessary Azure credentials have been included in the email containing this assignment. Please refer to these credentials for accessing the pre-deployed resources.
-
-## **IMPORTANT NOTE:** Use only the native Azure OpenAI SDK library, not LangChain or other frameworks.
-
-
-## Repository Contents
-
-The Git repository for this assignment contains two important folders:
-
-- **phase1_data**: This folder contains:
-  - 1 raw PDF file that you can use to create more examples if needed
-  - 3 filled documents for testing and development
-
-- **phase2_data**: This folder contains:
-  - HTML files that serve as the knowledge base for Part 2 of the home assignment
-
-## Part 1: Field Extraction using Document Intelligence & Azure OpenAI
-
-### Task
-Develop a system that extracts information from ביטוח לאומי (National Insurance Institute) forms using OCR and Azure OpenAI.
-
-### Requirements
-1. Use Azure Document Intelligence for OCR. [Learn more about Document Intelligence layout](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/concept-layout?view=doc-intel-4.0.0&tabs=sample-code)
-2. Use Azure OpenAI to extract fields and generate JSON output.
-3. Create a simple UI to upload a PDF/JPG file and display the resulting JSON. You can use **Streamlit** or **Gradio** for the UI implementation.
-4. Handle forms filled in either Hebrew or English.
-5. For any fields not present or not extractable, use an empty string in the JSON output.
-6. Implement a method to validate the accuracy and completeness of the extracted data.
-
-### Desired Output Format:
-```json
-{
-  "lastName": "",
-  "firstName": "",
-  "idNumber": "",
-  "gender": "",
-  "dateOfBirth": {
-    "day": "",
-    "month": "",
-    "year": ""
-  },
-  "address": {
-    "street": "",
-    "houseNumber": "",
-    "entrance": "",
-    "apartment": "",
-    "city": "",
-    "postalCode": "",
-    "poBox": ""
-  },
-  "landlinePhone": "",
-  "mobilePhone": "",
-  "jobType": "",
-  "dateOfInjury": {
-    "day": "",
-    "month": "",
-    "year": ""
-  },
-  "timeOfInjury": "",
-  "accidentLocation": "",
-  "accidentAddress": "",
-  "accidentDescription": "",
-  "injuredBodyPart": "",
-  "signature": "",
-  "formFillingDate": {
-    "day": "",
-    "month": "",
-    "year": ""
-  },
-  "formReceiptDateAtClinic": {
-    "day": "",
-    "month": "",
-    "year": ""
-  },
-  "medicalInstitutionFields": {
-    "healthFundMember": "",
-    "natureOfAccident": "",
-    "medicalDiagnoses": ""
-  }
-}
-```
-Here is a translation of the fields in Hebrew: 
-```json
-{
-  "שם משפחה": "",
-  "שם פרטי": "",
-  "מספר זהות": "",
-  "מין": "",
-  "תאריך לידה": {
-    "יום": "",
-    "חודש": "",
-    "שנה": ""
-  },
-  "כתובת": {
-    "רחוב": "",
-    "מספר בית": "",
-    "כניסה": "",
-    "דירה": "",
-    "ישוב": "",
-    "מיקוד": "",
-    "תא דואר": ""
-  },
-  "טלפון קווי": "",
-  "טלפון נייד": "",
-  "סוג העבודה": "",
-  "תאריך הפגיעה": {
-    "יום": "",
-    "חודש": "",
-    "שנה": ""
-  },
-  "שעת הפגיעה": "",
-  "מקום התאונה": "",
-  "כתובת מקום התאונה": "",
-  "תיאור התאונה": "",
-  "האיבר שנפגע": "",
-  "חתימה": "",
-  "תאריך מילוי הטופס": {
-    "יום": "",
-    "חודש": "",
-    "שנה": ""
-  },
-  "תאריך קבלת הטופס בקופה": {
-    "יום": "",
-    "חודש": "",
-    "שנה": ""
-  },
-  "למילוי ע\"י המוסד הרפואי": {
-    "חבר בקופת חולים": "",
-    "מהות התאונה": "",
-    "אבחנות רפואיות": ""
-  }
-}
+### 1. Install Dependencies
+```bash
+pip install -r requirements.txt
 ```
 
-## Part 2: Microservice-based ChatBot Q&A on Medical Services
+### 2. Configure Azure Credentials
+```bash
+# Copy environment template
+cp .env.example .env
+
+# Edit .env with your Azure credentials:
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+AZURE_OPENAI_API_KEY=your-api-key-here
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
+AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT=https://your-resource.cognitiveservices.azure.com/
+AZURE_DOCUMENT_INTELLIGENCE_KEY=your-key-here
+```
+
+### 3. Run the Demo
+```bash
+python start_demo.py
+```
+
+**🎯 Access the application at [http://localhost:8501](http://localhost:8501)**
+
+### 4. Test Everything Works
+```bash
+python run_tests.py
+```
+
+---
+
+## 📱 User Interface Walkthrough
+
+### Phase 1: Smart OCR Field Extraction
+- **Upload** Israeli National Insurance forms (PDF/images)
+- **Extract** structured data with AI-powered confidence analysis  
+- **Validate** using Israeli domain knowledge (ID numbers, cities, phones)
+- **Export** in multiple formats with detailed reasoning
+
+![Phase 1 OCR Interface](data/examples/phase1_screenshot.jpg)
+*Smart OCR field extraction with confidence analysis and Israeli domain validation*
+
+### Phase 2: Medical Services Chatbot
+- **Ask** questions about Israeli health insurance benefits
+- **Chat** in Hebrew or English with auto-detection
+- **Get** personalized answers based on your HMO and tier
+- **Powered** by 324 service chunks with semantic search
+
+*Note: Chatbot interface currently being debugged - see troubleshooting section below*
+
+---
+
+## 🏗️ Architecture
+
+Simple microservices with direct connections for demo, designed for horizontal scaling:
+
+```mermaid
+graph TB
+    UI["Streamlit UI<br/>localhost:8501"]
+    OCR["OCR Service<br/>localhost:8001"]
+    CHAT["Chat Service<br/>localhost:5000"]
+    METRICS["Metrics Service<br/>localhost:8031"]
+    CHROMADB["ChromaDB<br/>324 chunks"]
+    SQLITE["SQLite<br/>Metrics"]
+    
+    UI --> OCR
+    UI --> CHAT
+    UI --> METRICS
+    CHAT --> CHROMADB
+    METRICS --> SQLITE
+    
+    style UI fill:#e3f2fd
+    style OCR fill:#f3e5f5
+    style CHAT fill:#e8f5e8
+    style METRICS fill:#fff3e0
+```
+
+---
+
+## 📁 Project Structure
+
+```
+genai-ocr-chatbot/
+├── start_demo.py              # 🚀 Main demo starter
+├── run_tests.py               # 🧪 Test all services
+├── requirements.txt           # 📦 Dependencies
+├── config/settings.py         # ⚙️ Configuration
+│
+├── services/                  # 🔧 Microservices
+│   ├── health-form-di-service/    # OCR service (Port 8001)
+│   ├── chat-service/              # Chat service (Port 5000)
+│   └── metrics-service/           # Metrics service (Port 8031)
+│
+├── ui/                        # 🖥️ Streamlit interface (Port 8501)
+│   ├── streamlit_app.py
+│   ├── phase1_ui.py
+│   ├── phase2_ui.py
+│   └── api_client.py
+│
+├── data/                      # 📊 Data storage
+│   ├── phase1_data/              # Test PDFs
+│   ├── phase2_data/              # Knowledge base (6 categories)
+│   └── chromadb_storage/         # Vector database
+│
+└── src/                       # 📚 Shared modules
+    ├── document_models.py        # Pydantic models + validation
+    └── logger_config.py          # Centralized logging
+```
+
+---
+
+## 📊 Analytics Dashboard
+
+The system includes comprehensive analytics dashboards for monitoring performance and extracting insights:
+
+### Phase 1 OCR Analytics
+![Phase 1 Analytics Dashboard](data/examples/phase1_analytics_screenshot.jpg)
+*Detailed confidence analysis, field validation metrics, and processing performance tracking*
+
+### Phase 2 Chat Analytics  
+![Phase 2 Analytics Dashboard](data/examples/phase2_analytics_screenshot.jpg)
+*Conversation flow analysis, token usage, and user interaction patterns*
+
+---
+
+## 🔧 Technical Highlights
+
+### ✅ Azure-Native Integration
+- **Pure Azure OpenAI SDK** - No LangChain dependencies
+- **Azure Document Intelligence** - Advanced OCR with layout analysis
+- **Structured JSON outputs** - GPT-4o with strict schema validation
+
+### Document Intelligence
+- **LLM-powered confidence analysis** - Field-by-field scoring with reasoning
+- **Israeli domain validation** - ID checksums, phone formats, city names
+- **Smart error correction** - Fixes common OCR mistakes
+- **Multi-language support** - Hebrew/English with auto-detection
+
+### Stateless Chat Architecture  
+- **3-stage LLM pipeline** - Info extraction → Classification → Action determination
+- **Client-side state** - Full conversation history maintained by UI
+- **Service-specific chunking** - 324 targeted chunks (service × HMO × tier)
+- **Persistent vector storage** - ChromaDB with Azure embeddings
+
+### Production-Ready Services
+- **Health endpoints** - Real-time status monitoring
+- **Comprehensive metrics** - SQLite analytics with WAL mode
+- **Error handling** - Graceful failures and retry logic
+- **Performance tracking** - Detailed timing and token usage
+
+---
+
+## 🧪 Testing
+
+Run the complete test suite:
+```bash
+python run_tests.py
+```
+
+**Tests Include:**
+- ✅ Service health checks
+- ✅ OCR processing with confidence validation
+- ✅ Chat conversation flows (Hebrew/English)
+- ✅ Vector database functionality
+- ✅ Metrics collection and analytics
+- ✅ End-to-end integration scenarios
+
+---
+
+## 🌐 API Endpoints
+
+### OCR Service (Port 8001)
+```bash
+# Process document
+curl -X POST http://localhost:8001/process \
+  -F "file=@document.pdf" \
+  -F "language=auto"
+
+# Health check
+curl http://localhost:8001/health
+
+# Get metrics
+curl http://localhost:8001/metrics
+```
+
+### Chat Service (Port 5000)
+```bash
+# Send chat message
+curl -X POST http://localhost:5000/v1/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "מה ההטבות לטיפולי שיניים?",
+    "user_profile": {"hmo": "מכבי", "tier": "זהב"},
+    "conversation_history": []
+  }'
+```
+
+### Metrics Service (Port 8031)
+```bash
+# Get current metrics
+curl http://localhost:8031/metrics
+
+# Get confidence analytics
+curl http://localhost:8031/analytics/confidence
+```
+
+---
+
+## 🛠️ Troubleshooting
+
+### Common Issues
+
+**Services not starting:**
+```bash
+# Check Azure credentials
+cat .env
+
+# Verify ports are free
+netstat -an | grep -E ":(8001|5000|8031|8501)"
+```
+
+**Chat service offline:**
+- Verify Azure OpenAI credentials in `.env`
+- Check ChromaDB permissions in `data/chromadb_storage/`
+
+**OCR service fails:**
+- Ensure Azure Document Intelligence credentials are set
+- Test with sample files in `data/phase1_data/`
+
+**UI not loading:**
+- Try refreshing browser at [http://localhost:8501](http://localhost:8501)
+- Check Streamlit logs in terminal
+
+### Getting Help
+
+1. **Check service health:** Visit [http://localhost:8501](http://localhost:8501) for real-time status
+2. **Review logs:** Check `logs/` directory for detailed error messages
+3. **Run diagnostics:** Execute `python run_tests.py` for comprehensive checks
+
+---
 
 
-### Task
-Develop a microservice-based chatbot system that answers questions about medical services for Israeli health funds (Maccabi, Meuhedet, and Clalit) based on user-specific information. The system should be capable of handling multiple users simultaneously without maintaining server-side user memory.
+## 💡 Innovation Features
 
-### Core Requirements
+### 🎯 Advanced OCR Intelligence
+- **Multi-stage confidence analysis** using LLM reasoning
+- **Israeli domain expertise** for accurate field validation
+- **Smart error correction** based on document context
 
-1. **Microservice Architecture**
-   - Implement the chatbot as a stateless microservice using FastAPI or Flask.
-   - Handle multiple concurrent users efficiently.
-   - Manage all user session data and conversation history client-side (frontend).
+### 🧠 3-Stage Chat Pipeline
+- **Separation of concerns** - Extract → Classify → Act
+- **Token optimization** - Focused processing reduces costs
+- **Robust error handling** - Graceful fallbacks at each stage
 
-2. **User Interface**
-   - Develop a frontend using **Gradio** or **Streamlit**.
-   - Implement two main phases: User Information Collection and Q&A.
+### 🗃️ Service-Specific Knowledge Base
+- **Precise chunking** - One chunk per service+HMO+tier combination
+- **Persistent storage** - Fast startup with ChromaDB caching
+- **Citation tracking** - Full answer traceability
 
-3. **Azure OpenAI Integration**
-   - Utilize the Azure OpenAI client library for Python.
-   - Implement separate prompts for the information collection and Q&A phases.
+### 🔄 Stateless Session Management
+- **Client intelligence** - UI maintains full context
+- **Infinite scalability** - Any instance handles any request
+- **Memory efficiency** - No server-side session storage
 
-4. **Data Handling**
-   - Use provided HTML files provided in the 'phase2_data' folder as the knowledge base for answering questions.
+---
 
-5. **Multi-language Support**
-   - Implement support for Hebrew and English. 
+## 🆕 Version 2.0 Enhancements
 
-6. **Error Handling and Logging**
-   - Implement comprehensive error handling and validation.
-   - Create a logging system to track chatbot activities, errors, and interactions.
+### Enhanced Chat Service V2 (Port 5002)
+The enhanced V2 chat service includes significant improvements over the original implementation:
 
-### Detailed Specifications
+#### 🎯 Core Improvements
+- **Enhanced 3-stage pipeline** with improved extraction and classification
+- **Better service scope detection** - identifies in-scope, out-of-scope, and partial-scope queries
+- **Polite information collection** - more natural conversation flow for gathering user details
+- **Fallback logic** - shows all available benefits when specific matches aren't found
+- **Enhanced retrieval** - smarter matching with category-aware search
 
-#### User Information Collection Phase
-Collect the following user information:
-- First and last name
-- ID number (valid 9-digit number)
-- Gender
-- Age (between 0 and 120)
-- HMO name (מכבי | מאוחדת | כללית)
-- HMO card number (9-digit)
-- Insurance membership tier (זהב | כסף | ארד)
-- Provide a confirmation step for users to review and correct their information.
+#### 🔧 Technical Enhancements
+- **Improved error handling** with graceful degradation
+- **Enhanced metrics tracking** with detailed pipeline analytics
+- **Better prompt engineering** for more accurate classifications
+- **Expanded response schema** with richer metadata and context
 
-**Note:** This process should be managed exclusively through the LLM, avoiding any hardcoded question-answer logic or form-based filling in the UI
+#### 🚀 V2 Usage
+```bash
+# Start V2 enhanced demo
+python start_demo_v2.py
 
+# V2 Chat API endpoint
+curl -X POST http://localhost:5002/v2/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "What are the dental benefits?",
+    "user_profile": {"hmo": "מכבי", "tier": "זהב"},
+    "conversation_history": []
+  }'
 
-#### Q&A Phase
-- Transition to answering questions based on the user's HMO and membership tier.
-- Utilize the knowledge base from provided HTML files.
+# Get V2 service information
+curl http://localhost:5002/v2/info
+```
 
-#### State Management
-- Pass all necessary user information and conversation history with each request to maintain statelessness.
+#### 📊 V2 Features
+- **Service scope analysis** - automatically detects query relevance
+- **Available services listing** - shows what services are available per category  
+- **Enhanced fallback responses** - comprehensive benefits when specific info unavailable
+- **Improved conversation context** - better understanding of user intent
+- **Advanced retrieval strategies** - multiple fallback mechanisms for better coverage
 
-### Evaluation Criteria
+### Migration Notes
+- V1 service remains available on port 5000 for backward compatibility
+- V2 service runs on port 5002 with enhanced capabilities
+- Both versions use the same ChromaDB knowledge base
+- V2 recommended for new integrations and enhanced user experience
 
-1. Microservice Architecture Implementation
-2. Technical Proficiency (Azure OpenAI usage, data processing)
-3. Prompt Engineering and LLM Utilization
-4. Code Quality and Organization
-5. User Experience
-6. Performance and Scalability
-7. Documentation
-8. Innovation
-9. Logging and Monitoring Implementation
+---
 
-### Submission Guidelines
-1. Provide source code via GitHub.
-2. Include setup and run instructions.
-
-**Good luck! For any questions, feel free to contact me.**
-
-Dor Getter.
+Author: Lavi Ben-Shimol

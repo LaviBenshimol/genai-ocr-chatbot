@@ -14,15 +14,7 @@ project_root = Path(__file__).parent.parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-# Auto-configure Streamlit environment (cross-platform)
-try:
-    from src.ui.streamlit_config import setup_streamlit_environment
-    # Only run setup if this is the main process (not during reloads)
-    if not hasattr(st, '_streamlit_config_setup_done'):
-        setup_streamlit_environment()
-        st._streamlit_config_setup_done = True
-except Exception as e:
-    print(f"Warning: Streamlit auto-configuration failed: {e}")
+# Streamlit auto-configuration removed - no longer needed
 
 # Set up logging (console only for now)
 logging.basicConfig(
