@@ -337,17 +337,40 @@ def _validate_israeli_id_smart(value: str) -> str:
     if not original:
         return original
         
-    try:
-        # Normalize and validate using python-stdnum
-        normalized = idnr.compact(original)  # Strips spaces, normalizes format
-        idnr.validate(normalized)  # Raises exception if invalid
+    def validate_israeli_id_luhn(id_number):
+        """Validates Israeli ID using correct Luhn algorithm."""
+        id_number = str(id_number).replace('-', '').strip()
+        if not id_number.isdigit() or len(id_number) != 9:
+            return False
+        digits = [int(d) for d in id_number]
+        checksum_digit = digits.pop()
+        total_sum = 0
+        for i, digit in enumerate(reversed(digits)):
+            if (i + 1) % 2 == 0:  # Even position (from right, 0-indexed)
+                doubled_digit = digit * 2
+                if doubled_digit > 9:
+                    total_sum += (doubled_digit % 10) + (doubled_digit // 10)
+                else:
+                    total_sum += doubled_digit
+            else:  # Odd position
+                total_sum += digit
+        calculated_checksum = (10 - (total_sum % 10)) % 10
+        return calculated_checksum == checksum_digit
+
+    # Try direct validation first
+    if validate_israeli_id_luhn(original):
+        logger.info(f"Israeli ID validation success: {original}")
+        return original
         
-        logger.info(f"Israeli ID validation success: {original} → {normalized}")
-        return normalized
-        
-    except Exception as e:
-        logger.warning(f"Israeli ID validation failed: {original} → error: {e}")
-        return original  # Return original - permissive
+    # Try common OCR corrections for last digit
+    for last_digit in range(10):
+        corrected_id = original[:-1] + str(last_digit)
+        if validate_israeli_id_luhn(corrected_id):
+            logger.info(f"Israeli ID OCR correction applied: {original} → {corrected_id}")
+            return corrected_id
+    
+    logger.warning(f"Israeli ID validation failed: {original} (invalid checksum)")
+    return original  # Return original - permissive
 
 
 class IsraeliValidators:
@@ -368,8 +391,19 @@ class IsraeliValidators:
         """Legacy method - use smart validation in Pydantic models."""
         try:
             normalized = _validate_israeli_phone_smart(phone)
-            # Consider valid if normalization succeeded or original was returned for empty values
-            is_valid = normalized != phone or not phone.strip() 
-            return {"valid": is_valid, "error": None if is_valid else "Invalid phone format"}
+            # Test if the normalized number is actually valid using phonenumbers
+            import phonenumbers
+            try:
+                parsed = phonenumbers.parse(normalized, "IL")
+                is_valid = phonenumbers.is_valid_number(parsed)
+                if is_valid:
+                    if normalized != phone.strip():
+                        return {"valid": True, "error": None, "corrected": normalized}
+                    else:
+                        return {"valid": True, "error": None}
+                else:
+                    return {"valid": False, "error": "Invalid Israeli phone format"}
+            except:
+                return {"valid": False, "error": "Invalid phone number format"}
         except:
             return {"valid": False, "error": "Invalid phone format"}

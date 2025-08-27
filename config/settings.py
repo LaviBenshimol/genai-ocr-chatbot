@@ -18,8 +18,7 @@ SERVICES_DIR = PROJECT_ROOT / "services"
 LOGS_DIR.mkdir(exist_ok=True)
 UPLOADS_DIR.mkdir(exist_ok=True)
 
-# User storage
-USERS_JSON_PATH = DATA_DIR / "users.json"
+
 
 # Knowledge base
 KNOWLEDGE_BASE_DIR = DATA_DIR / "phase2_data"
