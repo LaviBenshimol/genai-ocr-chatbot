@@ -240,6 +240,8 @@ def create_app() -> Flask:
                     action = "answer"
 
             # Build enhanced response
+            response_action = "answer" if action == "retrieve_answer" else "collect"
+            
             resp = {
                 "intent": intent,
                 "answer_type": answer_type if 'answer_type' in locals() else intent,
@@ -247,8 +249,8 @@ def create_app() -> Flask:
                 "known_fields": {k: v for k, v in updated_profile.items() if v},
                 "missing_fields": requirements.get("missing_fields", []),
                 "sufficient_context": requirements.get("can_answer", False),
-                "action": "answer" if action == "retrieve_answer" else "collect",
-                "next_question": requirements.get("question_to_ask", "") if action == "collect_info" else "",
+                "action": response_action,
+                "next_question": requirements.get("question_to_ask", "") if action == "collect_info" or response_action == "collect" else "",
                 "answer": answer,
                 "citations": citations,
                 "token_usage": token_usage,
@@ -256,7 +258,13 @@ def create_app() -> Flask:
                 "disclaimer": "המידע כללי ואינו מהווה ייעוץ רפואי." if language == "he" and answer else "",
                 "language": language,
                 "service_scope": service_scope,
-                "available_services": available_services_list
+                "available_services": available_services_list,
+                "classification": {
+                    "category": category,
+                    "intent": intent,
+                    "keywords": classification.get("keywords", []),
+                    "confidence": classification.get("confidence", "medium")
+                }
             }
 
             # Enhanced logging

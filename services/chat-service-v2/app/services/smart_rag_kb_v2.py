@@ -118,39 +118,115 @@ class SmartRAGHealthKBV2:
         return ""
     
     def _parse_services_from_html(self, soup: BeautifulSoup, category: str):
-        """Parse services from HTML with improved extraction"""
+        """Parse services from HTML tables and text"""
         
-        # Strategy 1: Look for structured lists
         services_found = set()
         
-        # Look for list items that might be services
-        list_items = soup.find_all(['li', 'div', 'p'])
+        # Strategy 1: Parse HTML tables (main structure)
+        tables = soup.find_all('table')
+        for table in tables:
+            rows = table.find_all('tr')
+            headers = []
+            
+            # Get headers (usually first row)
+            if rows:
+                header_row = rows[0]
+                headers = [th.get_text(strip=True) for th in header_row.find_all(['th', 'td'])]
+                
+                # Process data rows
+                for row in rows[1:]:
+                    cells = row.find_all(['td', 'th'])
+                    if len(cells) >= 2:  # Need at least service name + one HMO
+                        service_name = cells[0].get_text(strip=True)
+                        if service_name and service_name not in ['שם השירות', '']:
+                            services_found.add(service_name)
+                            
+                            # Process each HMO column
+                            for i, cell in enumerate(cells[1:], 1):
+                                hmo = headers[i] if i < len(headers) else f'HMO_{i}'
+                                benefit_text = cell.get_text(strip=True)
+                                
+                                if benefit_text:
+                                    # Parse tier information from benefit text
+                                    tiers = self._parse_tier_benefits(benefit_text)
+                                    
+                                    for tier, tier_benefit in tiers.items():
+                                        # Initialize nested structure
+                                        if hmo not in self.by_category[category]:
+                                            self.by_category[category][hmo] = {}
+                                        if tier not in self.by_category[category][hmo]:
+                                            self.by_category[category][hmo][tier] = []
+                                        
+                                        service_info = {
+                                            'service': service_name,
+                                            'hmo': hmo,
+                                            'tier': tier,
+                                            'benefit': tier_benefit,
+                                            'content': f"{service_name} - {hmo} {tier}: {tier_benefit}"
+                                        }
+                                        self.by_category[category][hmo][tier].append(service_info)
+        
+        # Strategy 2: Parse list items for additional info
+        list_items = soup.find_all(['li'])
         for item in list_items:
             text = item.get_text(strip=True)
-            if not text:
-                continue
-                
-            # Parse structured benefit information
-            service_info = self._extract_service_info(text)
-            if service_info:
-                service_name = service_info.get('service', '').strip()
-                if service_name:
+            if text and ':' in text:
+                # Extract service name from list items like "בדיקות וניקוי שיניים: בדיקות תקופתיות"
+                parts = text.split(':', 1)
+                if len(parts) == 2:
+                    service_name = parts[0].strip()
+                    description = parts[1].strip()
                     services_found.add(service_name)
                     
-                    # Store by HMO and tier
-                    hmo = service_info.get('hmo', 'כללי')
-                    tier = service_info.get('tier', 'כללי')
-                    
+                    # Add as general service
+                    hmo = 'כללי'
+                    tier = 'כללי'
                     if hmo not in self.by_category[category]:
                         self.by_category[category][hmo] = {}
                     if tier not in self.by_category[category][hmo]:
                         self.by_category[category][hmo][tier] = []
                     
+                    service_info = {
+                        'service': service_name,
+                        'hmo': hmo,
+                        'tier': tier,
+                        'benefit': description,
+                        'content': text
+                    }
                     self.by_category[category][hmo][tier].append(service_info)
         
         # Update services tracking
         self.services_by_category[category].update(services_found)
         self.all_services.extend(services_found)
+    
+    def _parse_tier_benefits(self, benefit_text: str) -> Dict[str, str]:
+        """Parse tier benefits from cell text like 'זהב: xxx כסף: yyy ארד: zzz'"""
+        tiers = {}
+        
+        # Look for tier patterns
+        tier_patterns = {
+            'זהב': r'זהב:\s*([^<\n]*?)(?=(?:כסף:|ארד:|$))',
+            'כסף': r'כסף:\s*([^<\n]*?)(?=(?:זהב:|ארד:|$))',
+            'ארד': r'ארד:\s*([^<\n]*?)(?=(?:זהב:|כסף:|$))'
+        }
+        
+        for tier_name, pattern in tier_patterns.items():
+            matches = re.findall(pattern, benefit_text, re.IGNORECASE | re.DOTALL)
+            if matches:
+                # Clean up the match (remove HTML tags, extra whitespace)
+                benefit = re.sub(r'<[^>]+>', ' ', matches[0]).strip()
+                benefit = ' '.join(benefit.split())  # Normalize whitespace
+                if benefit:
+                    tiers[tier_name] = benefit
+        
+        # If no specific tiers found, use the whole text as 'כללי'
+        if not tiers:
+            clean_text = re.sub(r'<[^>]+>', ' ', benefit_text).strip()
+            clean_text = ' '.join(clean_text.split())
+            if clean_text:
+                tiers['כללי'] = clean_text
+        
+        return tiers
     
     def _extract_service_info(self, text: str) -> Optional[Dict[str, str]]:
         """Extract service information from text with improved parsing"""
@@ -223,14 +299,13 @@ class SmartRAGHealthKBV2:
         return None
     
     def _connect_to_existing_chromadb(self):
-        """Connect to existing ChromaDB data"""
+        """Connect to existing ChromaDB data or create if empty/invalid"""
         try:
             if not os.path.exists(self.chromadb_dir):
-                logger.warning(f"ChromaDB directory not found: {self.chromadb_dir}")
-                self.use_embeddings = False
-                return
+                logger.info(f"ChromaDB directory not found, creating: {self.chromadb_dir}")
+                os.makedirs(self.chromadb_dir, exist_ok=True)
             
-            # Connect to existing persistent ChromaDB
+            # Connect to persistent ChromaDB
             self.chroma_client = chromadb.PersistentClient(
                 path=self.chromadb_dir,
                 settings=Settings(anonymized_telemetry=False)
@@ -240,17 +315,114 @@ class SmartRAGHealthKBV2:
             collections = self.chroma_client.list_collections()
             logger.info(f"Found {len(collections)} ChromaDB collections")
             
+            # Check if we have a valid collection with data
             if collections:
-                # Use the first collection (should be health_kb or similar)
                 self.collection = collections[0]
                 count = self.collection.count()
                 logger.info(f"Connected to ChromaDB collection '{self.collection.name}' with {count} documents")
+                
+                # If collection is empty, populate it
+                if count == 0:
+                    logger.info("Collection is empty, populating with data...")
+                    self._populate_chromadb()
             else:
-                logger.warning("No ChromaDB collections found")
-                self.use_embeddings = False
+                logger.info("No ChromaDB collections found, creating and populating...")
+                self._populate_chromadb()
                 
         except Exception as e:
             logger.warning(f"Failed to connect to ChromaDB: {e}")
+            # Try to recreate from scratch
+            try:
+                logger.info("Attempting to recreate ChromaDB from scratch...")
+                import shutil
+                if os.path.exists(self.chromadb_dir):
+                    shutil.rmtree(self.chromadb_dir)
+                os.makedirs(self.chromadb_dir, exist_ok=True)
+                
+                self.chroma_client = chromadb.PersistentClient(
+                    path=self.chromadb_dir,
+                    settings=Settings(anonymized_telemetry=False)
+                )
+                self._populate_chromadb()
+            except Exception as e2:
+                logger.error(f"Failed to recreate ChromaDB: {e2}")
+                self.use_embeddings = False
+    
+    def _populate_chromadb(self):
+        """Populate ChromaDB with data from HTML files"""
+        try:
+            # Create collection
+            collection_name = "health_kb_v2"
+            try:
+                self.collection = self.chroma_client.create_collection(
+                    name=collection_name,
+                    metadata={"description": "Medical services knowledge base"}
+                )
+                logger.info(f"Created ChromaDB collection: {collection_name}")
+            except Exception as e:
+                # Collection might already exist, try to get it
+                if "already exists" in str(e):
+                    self.collection = self.chroma_client.get_collection(collection_name)
+                    logger.info(f"Using existing collection: {collection_name}")
+                else:
+                    raise e
+            
+            # Process HTML files and create embeddings
+            documents = []
+            metadatas = []
+            ids = []
+            
+            doc_id = 0
+            for category, hmos in self.by_category.items():
+                for hmo, tiers in hmos.items():
+                    for tier, services in tiers.items():
+                        for service in services:
+                            # Create document text
+                            doc_text = f"קטגוריה: {category}\n"
+                            doc_text += f"שירות: {service.get('service', 'לא מוגדר')}\n"
+                            doc_text += f"קופת חולים: {service.get('hmo', hmo)}\n"
+                            doc_text += f"מסלול: {service.get('tier', tier)}\n"
+                            doc_text += f"הטבה: {service.get('benefit', 'לא מוגדר')}\n"
+                            if 'content' in service:
+                                doc_text += f"תוכן: {service['content']}\n"
+                            
+                            # Create metadata
+                            metadata = {
+                                "category": category,
+                                "service": service.get('service', ''),
+                                "fund": service.get('hmo', hmo),
+                                "plan": service.get('tier', tier),
+                                "source_file": f"{category}_services.html"
+                            }
+                            
+                            documents.append(doc_text)
+                            metadatas.append(metadata)
+                            ids.append(f"doc_{doc_id}")
+                            doc_id += 1
+            
+            if documents:
+                # Add documents to collection in batches
+                batch_size = 100
+                for i in range(0, len(documents), batch_size):
+                    batch_docs = documents[i:i+batch_size]
+                    batch_metas = metadatas[i:i+batch_size] 
+                    batch_ids = ids[i:i+batch_size]
+                    
+                    self.collection.add(
+                        documents=batch_docs,
+                        metadatas=batch_metas,
+                        ids=batch_ids
+                    )
+                
+                final_count = self.collection.count()
+                logger.info(f"Successfully populated ChromaDB with {final_count} documents")
+                self.use_embeddings = True
+            else:
+                logger.warning("No documents to add to ChromaDB")
+                self.use_embeddings = False
+                
+        except Exception as e:
+            logger.error(f"Failed to populate ChromaDB: {e}")
             self.use_embeddings = False
     
     def get_available_categories(self) -> Set[str]:

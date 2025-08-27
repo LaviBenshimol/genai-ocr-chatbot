@@ -14,6 +14,9 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import traceback
 
+# Import analytics framework
+from analytics_framework import AnalyticsDashboard, Phase1Analytics, Phase2Analytics
+
 app = Flask(__name__)
 CORS(app)
 
@@ -241,8 +244,11 @@ class MetricsStorage:
             print(f"Failed to get current metrics: {e}")
             return {"error": str(e)}
 
-# Initialize storage
+# Initialize storage and analytics
 storage = MetricsStorage()
+analytics_dashboard = AnalyticsDashboard()
+phase1_analytics = Phase1Analytics()  
+phase2_analytics = Phase2Analytics()
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -299,11 +305,138 @@ def get_current_metrics():
         print(f"Current metrics error: {e}")
         return jsonify({"error": "Failed to get current metrics", "details": str(e)}), 500
 
+@app.route('/dashboard/combined', methods=['GET'])
+def get_combined_dashboard():
+    """Get combined Phase 1 and Phase 2 dashboard data."""
+    try:
+        hours = int(request.args.get('hours', 24))
+        phase_selection = request.args.get('phase', 'both')  # phase1, phase2, both
+        
+        dashboard_data = analytics_dashboard.get_combined_dashboard(hours, phase_selection)
+        return jsonify(dashboard_data), 200
+    except Exception as e:
+        import traceback
+        print(f"Combined dashboard error: {e}")
+        print(f"Traceback: {traceback.format_exc()}")
+        # Return empty dashboard data instead of error
+        return jsonify({
+            "phase1_data": {"summary": {"total_processing_events": 0}},
+            "phase2_data": {"summary": {"total_chat_events": 0}},
+            "error": f"Dashboard temporarily unavailable: {str(e)}"
+        }), 200
+
+@app.route('/dashboard/phase1', methods=['GET'])
+def get_phase1_dashboard():
+    """Get Phase 1 (OCR) specific dashboard data."""
+    try:
+        hours = int(request.args.get('hours', 24))
+        format_type = request.args.get('format', 'data')  # data, figure, both
+        
+        result = {}
+        
+        if format_type in ['data', 'both']:
+            phase1_data = phase1_analytics.get_phase1_data(hours)
+            result['data'] = phase1_data.to_dict('records') if not phase1_data.empty else []
+            result['summary'] = {
+                'total_documents': len(phase1_data),
+                'avg_confidence': float(phase1_data['confidence_score'].mean()) if not phase1_data.empty and phase1_data['confidence_score'].mean() > 0 else 0,
+                'avg_processing_time': float(phase1_data['processing_time_seconds'].mean()) if not phase1_data.empty else 0,
+                'total_tokens': int(phase1_data['tokens_used'].sum()) if not phase1_data.empty else 0
+            }
+        
+        if format_type in ['figure', 'both']:
+            phase1_figure = phase1_analytics.create_dashboard(hours)
+            result['figure'] = phase1_figure.to_dict()
+        
+        result['hours'] = hours
+        result['timestamp'] = datetime.now().isoformat()
+        
+        return jsonify(result), 200
+    except Exception as e:
+        print(f"Phase 1 dashboard error: {e}")
+        return jsonify({"error": "Failed to get Phase 1 dashboard", "details": str(e)}), 500
+
+@app.route('/dashboard/phase2', methods=['GET'])
+def get_phase2_dashboard():
+    """Get Phase 2 (Chat) specific dashboard data."""
+    try:
+        hours = int(request.args.get('hours', 24))
+        format_type = request.args.get('format', 'data')  # data, figure, both
+        
+        result = {}
+        
+        if format_type in ['data', 'both']:
+            phase2_data = phase2_analytics.get_phase2_data(hours)
+            result['data'] = phase2_data.to_dict('records') if not phase2_data.empty else []
+            result['summary'] = {
+                'total_interactions': len(phase2_data),
+                'avg_processing_time': float(phase2_data['processing_time_seconds'].mean()) if not phase2_data.empty else 0,
+                'total_tokens': int(phase2_data['tokens_used'].sum()) if not phase2_data.empty else 0,
+                'unique_intents': len(phase2_data['intent'].unique()) if not phase2_data.empty and 'intent' in phase2_data else 0
+            }
+        
+        if format_type in ['figure', 'both']:
+            phase2_figure = phase2_analytics.create_dashboard(hours)
+            result['figure'] = phase2_figure.to_dict()
+        
+        result['hours'] = hours
+        result['timestamp'] = datetime.now().isoformat()
+        
+        return jsonify(result), 200
+    except Exception as e:
+        print(f"Phase 2 dashboard error: {e}")
+        return jsonify({"error": "Failed to get Phase 2 dashboard", "details": str(e)}), 500
+
+@app.route('/dashboard/scenarios', methods=['POST'])
+def run_test_scenarios():
+    """Run debug scenarios and store results."""
+    try:
+        scenarios_data = request.get_json()
+        if not scenarios_data:
+            return jsonify({"error": "No scenarios data provided"}), 400
+        
+        results = []
+        for scenario in scenarios_data.get('scenarios', []):
+            # Process each scenario and store metrics
+            scenario_name = scenario.get('name', 'unknown')
+            turns = scenario.get('turns', [])
+            
+            for turn_idx, turn in enumerate(turns):
+                # Create a metrics entry for this turn
+                metrics_event = {
+                    'service_name': 'chat-service-v2',
+                    'event_type': 'scenario_test',
+                    'processing_time_seconds': turn.get('processing_time', 0),
+                    'tokens_used': turn.get('tokens_used', 0),
+                    'success': turn.get('success', True),
+                    'metadata': {
+                        'scenario_name': scenario_name,
+                        'turn_index': turn_idx,
+                        'message_length': len(turn.get('message', '')),
+                        'intent': turn.get('intent', 'unknown'),
+                        'language': turn.get('language', 'he'),
+                        'phase': 'phase2_chat'
+                    }
+                }
+                
+                storage.ingest_event(metrics_event)
+                results.append({
+                    'scenario': scenario_name,
+                    'turn': turn_idx,
+                    'status': 'recorded'
+                })
+        
+        return jsonify({"message": "Scenarios recorded", "results": results}), 200
+    except Exception as e:
+        print(f"Scenarios error: {e}")
+        return jsonify({"error": "Failed to process scenarios", "details": str(e)}), 500
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8031))
     
     print(f"Starting Metrics Service on port {port}")
     print("Endpoints: /health, /ingest, /analytics/confidence, /analytics/trends, /metrics")
+    print("Dashboard APIs: /dashboard/combined, /dashboard/phase1, /dashboard/phase2, /dashboard/scenarios")
     print(f"Database: {DB_PATH} (WAL mode)")
     
     app.run(
